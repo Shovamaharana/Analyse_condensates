@@ -1,5 +1,5 @@
-# Analyse_condensates
-This is a Matlab Code to analyse nuclear or cytoplasmic condensate images for enrichment of respective markers. We start here with the best focussed images of the condesates and the respective images in the dapi channel. We keep all the channel files in one folder. The channel names are usually separated by '_c001.tif', '_c002.tif' or 'c:1-3.tif', 'c:2-3.tif' etc.
+# Analyse_nuclear_condensates
+This is a Matlab Code to analyse nuclear condensate images for enrichment of respective markers. We start here with the best focussed images of the condesates and the respective images in the dapi channel. We keep all the channel files in one folder. The channel names are usually separated by '_c001.tif', '_c002.tif' or 'c:1-3.tif', 'c:2-3.tif' etc.
 We use the dapi channel to automatically detect the nucleus. We separate the nucleus and look for intranuclear condensates.
 We use a 12 pixel rim around the nucleus to calculate cytoplasm in line 
 
