@@ -1,0 +1,137 @@
+# cytoplasmic_condensates
+This is a Matlab Code to analyse cytoplasmic condensate images for enrichment of respective markers. We start here with the best focussed images of the condesates and the respective images in the dapi channel. We keep all the channel files in one folder. The channel names are usually separated by '_c001.tif', '_c002.tif' or 'c:1-3.tif', 'c:2-3.tif' etc.
+Each filed of view opens one after another. We choose the cell boundary manually with a free hand drawing. The nuclei is thresholded automatically using the dapi channel.
+The loop stops when you just do a empty click in the image and then it goes to next image.
+The results are compiled in variable-"all_result1", which can be copied into an excel.
+
+clc;
+clear all;
+
+%% make directory of the files needs to be analysed
+dv_folder = '/Volumes/Backup Plus/shrna_fibrillarin';
+cd(dv_folder);
+
+file = dir('c:2-2*');
+N=size(file);
+
+%% loop for all files
+all_result=[];all_result1=[];result_indipml=[]; area_allcell=[];
+
+for a=1:N
+   
+    
+    file(a).name
+    nm_C2 = uint16(imread(file(a).name));a
+    
+    
+   str1 = file(a).name;
+    str2 = regexp (str1,'c:2-2','split'); % cytoplasmic condensate channel
+    str = str2{1,2};
+    
+    str02 = strcat('c:1-2',str);%%% dapi channel
+    nm_C1 = uint16(imread(str02));
+  
+
+    %% loop for each cell in the image
+   flag=1;count=0; all_cyto_mask=[];all_nuc_mask=[];sum_cytomask = uint16(ones(size(nm_C1,1),size(nm_C1,2)));
+  
+   blue = uint16(zeros(size(nm_C1,1),size(nm_C1,2)));
+   RGB= cat(3,imadjust(nm_C1), imadjust(nm_C2),blue);
+   
+   while (flag)  
+       count=count+1
+        
+        % create cell mask
+        RGB =RGB.*sum_cytomask;
+        %img=imagesc(nm_C2);title('Select cyto Boundary');
+        img=imshow(RGB);title('Select cyto Boundary');
+        h = imfreehand;
+
+        cyto_mask0 = createMask(h, img);
+        invcyto_mask = uint16(imcomplement(cyto_mask0));
+        cyto_mask = uint16(cyto_mask0);
+        close all; figure (1);imagesc(cyto_mask);pause(0.1)
+        all_cyto_mask=cat(3,all_cyto_mask,cyto_mask0);
+         % compute for flag
+        lin_cell=double(cyto_mask(cyto_mask>0));
+        sum_area=sum(lin_cell);
+        if sum_area > 100
+            
+            % nucleus mask by thresholding DAPI
+            img_cell=uint16(cyto_mask.*nm_C1);
+            lin_I1cell=double(img_cell(img_cell>0));
+            mn1 = mean (lin_I1cell);
+            sd1 = std(lin_I1cell);
+            nuc_thr = img_cell > ((0.70*mn1)+(0.75*sd1));%%%% select nucleus
+            nuc_thr = bwareaopen(nuc_thr,50);
+            
+            nuc_mask1= imfill(nuc_thr,'holes');
+            se = strel('disk',6,8);
+           nuc_mask0=imerode(nuc_mask1,se);%%% use this..to calculate mean 
+           nuc_mask=uint16(nuc_mask0); 
+           %close all; figure (1);imagesc(nuc_mask);pause(0.3);
+         
+            %figure (2);imagesc(nuc_mask0);title('nuc mask');pause(0.3);
+            
+          % cytoplasm mask
+           
+            nuc_maski = imcomplement(nuc_mask0);
+           cytoplasm0 = cyto_mask0 .* nuc_maski; 
+           cytoplasm = uint16(cytoplasm0);
+          
+          
+             %close all; figure (1);imagesc(cytoplasm0);title('cytoplasm');pause(0.3);
+             
+             % condensate mask by thresholding cytoplasmic condensate marker %%%% 
+             img_cell=uint16(cytoplasm.*nm_C2);
+             lin_I1cell=double(img_cell(img_cell>0));
+             mn2 = mean (lin_I1cell);
+             sd2 = std(lin_I1cell);
+             Iblur1 = imgaussfilt(img_cell,2);
+            sg_thr = Iblur1 > ((1.12*mn2)+(0.15*sd2));
+    
+            sg_thr1 = bwareaopen(sg_thr,10);
+            all_sg_mask = uint16(sg_thr1); %%%% select sg
+            %figure (2);imagesc( all_sg_mask);title('sg');pause(0.3);
+            % cytoplasm with  no condensate
+            sg_thri =uint16(imcomplement(sg_thr1));
+            cyt_nosg_mask = cytoplasm .*  sg_thri;
+            figure (1);imagesc(cyt_nosg_mask);title('no sg cyto');pause(0.3);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+          
+            cytoplasm = cyt_nosg_mask ; %%% cytoplasm
+             cytoplasm_int1 = cytoplasm.*nm_C2; %%%% real image quanti
+                 lin_I1cytoplasm1=double(cytoplasm_int1(cytoplasm_int1>0));
+                   mn2_cytoplasm = mean (lin_I1cytoplasm1);%%
+                   sd2_cytoplasm = std(lin_I1cytoplasm1);
+                    
+             sg_int = all_sg_mask .*nm_C2; %%%% real image quatification for condensate 
+                   lin_I2sg=double(sg_int(sg_int>0));
+                   mn2_sg = mean (lin_I2sg);%%%
+                   sd2_sg = std(lin_I2sg);
+                   sg_areacell = sum(sum(all_sg_mask));
+                   cell_area = sum(sum(cyto_mask));
+                   
+                   area_fraction= sg_areacell/cell_area;
+ 
+                   nuc_int = nuc_mask .*nm_C2; 
+                   lin_I2nuc =double(nuc_int(nuc_int > 0));
+                   mn2_nuc = mean(lin_I2nuc); %%%%nucleoplasm
+                   sd2_nuc = std(lin_I2nuc);
+                   
+                   sg_enr= mn2_sg/mn2_cytoplasm;%%%
+             
+   
+           %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
+           result1=cat(2, mn2_cytoplasm,sd2_cytoplasm,mn2_sg,sd2_sg,sg_areacell,cell_area,area_fraction,mn2_nuc,sd2_nuc,sg_enr);
+          all_result1=cat(1,all_result1,result1);
+        else
+            flag = 0;
+        end
+       close all; 
+   end
+   
+   file_nm3 = strcat('Cellmask_untrans_',str,'.mat');
+   save(file_nm3,'all_cyto_mask'); 
+end
+    
